@@ -5,10 +5,10 @@ Version: 0.1.0
 Author: Paulo Corrêa
 Maintainer: Paulo Corrêa <correapvf@gmail.com>
 Description: This package includes filters to smooth and clear ROV track data,
-and possibility GPS data in general. Filters include remove outliers, moving average,
-detecte and remove areas where the ROV were stopped, remove points based on a distance thrhold,
-and simplify using the Douglas-Peuker Algorithm. The package also provides a plot funtion to
-easily visualise the track in a 3D plot.
+    and possibility GPS data in general. Filters include remove outliers, moving average,
+    detecte and remove areas where the ROV were stopped, remove points based on a distance thrhold,
+    and simplify using the Douglas-Peuker Algorithm. The package also provides a plot funtion to
+    easily visualise the track in a 3D plot.
 License: GPL-2
 LazyData: true
 Imports:

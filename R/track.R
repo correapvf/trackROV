@@ -35,7 +35,7 @@
 #'     remove_stopped(n = 61, p = 0.0004, d = 6, t=35)
 #' plot(track_dummy)
 #' 
-#' track_dummy2 = track_dummy2 %>% copy_track() %>% # use \code{copy_track} or else will also affect track_dummy
+#' track_dummy2 = track_dummy %>% copy_track() %>% # use \code{copy_track} or else filters will also affect track_dummy
 #'     distance_filter(d = 4)
 #' plot(track_dummy2)
 #' plot(track_dummy2, select = "Dive2")
@@ -74,7 +74,7 @@ create_track <- function(coords, crs = NA) {
 #' @param x 'track' object
 #' @param filename Output file name.
 #' @param digits  Number of digits to round data
-#' @param ... further arguments passed to \code{\link[data.table]{fwrite}} or \code{\link[plotly]{plot_ly}}.
+#' @param ... further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.
 #' @rdname trackROV
 #' @export
 write_track <- function(x, filename, digits = 2, ...) {
@@ -97,25 +97,57 @@ get_coords <- function(x, data.table = FALSE) {
 
 
 #' @param select character, indicating which Dive to plot. Default to plot first dive.
+#' @param engine character, either "plotly" or "rdl".
+#' @param scale_axis logical, scale axis to avoid rounding error in the scene
 #' @rdname trackROV
 #' @export
-plot.track <- function(x, select = NA, ...) {
+plot.track <- function(x, select = NA, engine = "plotly", scale_axis = FALSE, ...) {
     if (is.na(select)) select = x$coords[1, Dive]
-    Time_sec = as.numeric(x$coords[Dive==select, Time])
-    Time_sec = Time_sec - Time_sec[1]
     
-    defaultW <- getOption("warn")
-    options(warn = -1) 
-    fig <- plotly::plot_ly(type="scatter3d", mode="lines", ...) %>%
-        plotly::add_trace(data=x$coords[Dive==select], x=~Lon, y=~Lat, z=~Depth, text=~Time,
-                  color=Time_sec, line=list(width = 4), name="Track") %>% 
-        plotly::add_trace(data=x$coords_init[Dive==select], x = ~Lon, y = ~Lat, z = ~Depth, 
-                  color = ~removed, size = 1, mode="markers", hoverinfo="none") %>% 
-        plotly::layout(scene = list(aspectmode='data')) %>% 
-        plotly::colorbar(title = "Time (sec)")
+    dt1 <- x$coords[Dive==select]
+    dt2 <- x$coords_init[Dive==select]
     
-    options(warn = defaultW)
-    return(fig)
+    if (scale_axis) {
+        minimal = min(dt2$Lon)
+        dt1[, Lon := (Lon-minimal)*1000]
+        dt2[, Lon := (Lon-minimal)*1000]
+        
+        minimal = min(dt2$Lat)
+        dt1[, Lat := (Lat-minimal)*1000]
+        dt2[, Lat := (Lat-minimal)*1000]
+        
+        minimal = max(dt2$Depth)
+        dt1[, Depth := (Depth-minimal)*1000]
+        dt2[, Depth := (Depth-minimal)*1000]
+    }
+
+    if (engine == "plotly") {
+        if (!requireNamespace("plotly", quietly = TRUE)) stop("Package 'plotly' not installed")
+        Time_sec = as.numeric(x$coords[Dive==select, Time])
+        Time_sec = Time_sec - Time_sec[1]
+    
+        defaultW <- getOption("warn")
+        options(warn = -1) 
+        fig <- plotly::plot_ly(type="scatter3d", mode="lines", ...) %>%
+            plotly::add_trace(data=dt1, x=~Lon, y=~Lat, z=~Depth, text=~Time,
+                      color=Time_sec, line=list(width = 4), name="Track") %>% 
+            plotly::add_trace(data=dt2, x = ~Lon, y = ~Lat, z = ~Depth, 
+                      color = ~removed, size = 1, mode="markers", hoverinfo="none") %>% 
+            plotly::layout(scene = list(aspectmode='data')) %>% 
+            plotly::colorbar(title = "Time (sec)")
+        
+        options(warn = defaultW)
+        return(fig)
+    }
+    else {
+        if (!requireNamespace("rgl", quietly = TRUE)) stop("Package 'rgl' not installed")
+        cols <- data.table(removed = c("distance_filter", "is_stopped", "kept", "rolling_mean", "outlier"), colors = c(4,6,3,5,2))
+        dt2 <- dt2[cols, on = .(removed)]
+        rgl::par3d(windowRect = c(100, 100, 1024, 1024))
+        rgl::plot3d(dt1$Lon, dt1$Lat, dt1$Depth, type = "l", col = "red", xlab = 'Lon', ylab = 'Lat', zlab = 'Depth', aspect=FALSE, ...)
+        rgl::points3d(dt2$Lon, dt2$Lat, dt2$Depth, col = dt2$colors)
+        rgl::legend3d("topright", cols$removed, pch = 16, col = cols$colors)
+    }
 }
 
 

@@ -15,7 +15,7 @@ write_track(x, filename, digits = 2, ...)
 
 get_coords(x, data.table = FALSE)
 
-\method{plot}{track}(x, select = NA, ...)
+\method{plot}{track}(x, select = NA, engine = "plotly", scale_axis = FALSE, ...)
 
 copy_track(x)
 }
@@ -30,11 +30,15 @@ copy_track(x)
 
 \item{digits}{Number of digits to round data}
 
-\item{...}{further arguments passed to \code{\link[data.table]{fwrite}} or \code{\link[plotly]{plot_ly}}.}
+\item{...}{further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.}
 
 \item{data.table}{logical. TRUE returns a data.table. FALSE returns a data.frame.}
 
 \item{select}{character, indicating which Dive to plot. Default to plot first dive.}
+
+\item{engine}{character, either "plotly" or "rdl".}
+
+\item{scale_axis}{logical, scale axis to avoid rounding error in the scene}
 }
 \description{
 Create a track object from a data.frame. 
@@ -72,7 +76,7 @@ track_dummy = create_track(simcoords) \%>\%
     remove_stopped(n = 61, p = 0.0004, d = 6, t=35)
 plot(track_dummy)
 
-track_dummy2 = track_dummy2 \%>\% copy_track() \%>\% # use \code{copy_track} or else will also affect track_dummy
+track_dummy2 = track_dummy \%>\% copy_track() \%>\% # use \code{copy_track} or else filters will also affect track_dummy
     distance_filter(d = 4)
 plot(track_dummy2)
 plot(track_dummy2, select = "Dive2")

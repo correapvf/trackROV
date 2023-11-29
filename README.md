@@ -15,7 +15,7 @@ easily visualise the track in a 3D plot.
 * interpolate_points - Interpolate points along track.
 * fill_time_gaps - Create a point every second.
 
-Check `?trackROV` and `?simcootds` to get started.
+Check `?trackROV` and `?simcoords` to get started.
 ## Installation
 ```r
 library(devtools)

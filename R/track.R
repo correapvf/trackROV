@@ -8,19 +8,25 @@
 #' @details Use \code{create_track} to create a 'track' object and apply filters.
 #' Following functions can also be used:
 #' \itemize{
-#'   \item \code{write_track} - Save coordinates in file.
+#'   \item \code{write_track} - Save coordinates in text file.
+#'   \item \code{write_track_st} - Save coordinates in shape file.
 #'   \item \code{get_coords} - Get coordinates from a 'track' object.
 #'   \item \code{copy_track} - Make a copy of the object.
 #'   \item \code{plot} - 3D plot of the track using \code{plotly}.
+#'   \item \code{\link{plot_tracks}} - Save tracks of each dive as a html file.
+#'   \item \code{\link{set_dives}} - Associate dives based on start and end timestamps.
 #'   }
 #' Always use \code{copy_track} to make a copy of the track object (e.g. \code{track2 = copy(track1)}),
 #' or else filters will be applied to both objects.
 #' 
 #' Possible filters include:
 #' \itemize{
+#'   \item \code{\link{filter_depth}} - Filter points based on depth 
+#'   \item \code{\link{trim_track}} - Remove points that are far away in the start or end of a track.
 #'   \item \code{\link{remove_outliers}} - Remove points that are far away from adjacent points.
 #'   \item \code{\link{remove_stopped}} - Detect cloud of points and remove them from the track.
 #'   \item \code{\link{distance_filter}} - Distance threshold filter.
+#'   \item \code{\link{distance_filter_mean}} - Distance threshold filter followed by mean.
 #'   \item \code{\link{rolling_mean}} - Rolling mean filter.
 #'   \item \code{\link{simplify_filter}} - Remove points using Douglas-Peuker Algorithm.
 #'   \item \code{\link{interpolate_points}} - Interpolate points along track.
@@ -43,18 +49,26 @@
 #' write_track(track_dummy2, "track_clean.csv", digits = 2)
 #' @param coords A data.frame with the ROV data. See \code{\link{simcoords}} for more details.
 #' @param crs A object with coordinate reference system. Check \code{\link[sf]{st_crs}} for options.
+#' @param crs_from If supplied, coordinates are converted from \code{crs_from} to \code{crs}.
 #' @rdname trackROV
 #' @importFrom data.table :=
 #' @export
-create_track <- function(coords, crs = NA) {
+create_track <- function(coords, crs = NA, crs_from = NA) {
     if (!any(class(coords) == "data.frame")) stop("coords must be a data.frame or data.table")
-    data.table::setDT(coords)
+    coords <- data.table::as.data.table(coords)
     
-    if (!all(colnames(coords) %in% c("Dive","Time","Lon","Lat","Depth"))) 
-        stop("coords must have '[Dive,] Time, Lon, Lat, Depth' columns")
+    if (!all(c("Time","Lon","Lat","Depth") %in% colnames(coords))) 
+        stop("coords must have 'Time, Lon, Lat, Depth' columns")
 
     if (!("Dive" %in% colnames(coords))) {
-        coords[, Dive := "dive"]
+        coords[, Dive := "dive1"]
+    }
+    
+    if (!is.na(crs_from)) {
+      x = sf::sf_project(from = sf::st_crs(crs_from), to = sf::st_crs(crs), coords[, c('Lon','Lat', 'Depth')])
+      coords[, Lon := x[, 1]]
+      coords[, Lat := x[, 2]]
+      coords[, Depth := x[, 3]]
     }
     
     data.table::setkey(coords, Dive, Time)
@@ -74,13 +88,40 @@ create_track <- function(coords, crs = NA) {
 #' @param x 'track' object
 #' @param filename Output file name.
 #' @param digits  Number of digits to round data
-#' @param ... further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.
 #' @rdname trackROV
 #' @export
 write_track <- function(x, filename, digits = 2, ...) {
     x$coords[, (x$cols) := lapply(.SD, round, digits = digits), .SDcols=x$cols]
-    data.table::fwrite(x$coords, filename, ...)
+    
+    if (unique(x$coords$Dive) == 1) {
+      data.table::fwrite(x$coords[, !"Dive"], filename, ...)
+    } else {
+      data.table::fwrite(x$coords, filename, ...)
+    }
 }
+
+
+#' @param as_line logical. If TRUE, save features as lines, else save as points
+#' @param ... further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[sf]{st_write}},
+#' \code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.
+#' @rdname trackROV
+#' @export
+write_track_sf <- function(x, filename, as_line = FALSE, ...) {
+  tmp <- x$coords %>%
+    sf::st_as_sf(coords = x$cols, crs = x$crs)
+
+  if (as_line) { 
+    tmp %>%
+      dplyr::group_by(Dive) %>%
+      dplyr::summarise(Start = dplyr::first(Time),
+                       End = dplyr::last(Time),
+                       geometry = sf::st_combine(geometry)) %>%
+      sf::st_cast("LINESTRING")
+  }
+
+  sf::st_write(tmp, filename, ...)
+}
+
 
 #' @export
 print.track <- function(x, ...) {
@@ -162,13 +203,13 @@ copy_track <- function(x) {
 
 check_track <- function(x) {
     if(!("track" %in% class(x))) stop("x must be 'track' object. Use create_track first.")
-    if (x$interpolated) stop("This filter should not be applied after 'fill_by_time'")
+    if (x$interpolated) stop("This filter should not be applied after 'fill_time_gaps'")
 }
 
 #' @export
 magrittr::`%>%`
 
-utils::globalVariables(c("." ,".SD", "Depth", "Dive", "Lat", "Lon", "Time", "geometry",
+utils::globalVariables(c(".", ".SD", "Depth", "Dive", "Lat", "Lon", "Time", "geometry",
                          "i.Depth", "i.Lat", "i.Lon", "id", "keep", "removed"))
 
 #' Sample of ROV track data

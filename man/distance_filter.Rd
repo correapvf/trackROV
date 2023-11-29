@@ -2,9 +2,12 @@
 % Please edit documentation in R/distance_filter.R
 \name{distance_filter}
 \alias{distance_filter}
+\alias{distance_filter_mean}
 \title{Distance threshold filter}
 \usage{
 distance_filter(x, d = 5, select = NULL)
+
+distance_filter_mean(x, d = 5, select = NULL)
 }
 \arguments{
 \item{x}{'track' object.}
@@ -17,4 +20,8 @@ distance_filter(x, d = 5, select = NULL)
 Only keep points after a distance \code{d} has been reached.
 Check \href{https://www.gpsvisualizer.com/tutorials/track_filters.html}{here} for a more detailed
 explanation of how the filter works.
+}
+\details{
+\code{distance_filter_mean} is similar, but it adds an extra step where the mean point is calculated
+for each group based on the distance threshold. This can minimize the effect of outliers.
 }

@@ -1,28 +1,28 @@
 
 # put the time stamp in the n 
 join_coords <- function(lon, lat, depth, dive, coords_along) {
-    n = length(lon)
-    lon.f = rep(0, n)
-    lat.f = rep(0, n)
-    depth.f = rep(0, n)
-    i = 1
+    n <- length(lon)
+    lon.f <- rep(0, n)
+    lat.f <- rep(0, n)
+    depth.f <- rep(0, n)
+    i <- 1
     
-    lon.n = coords_along[Dive == dive, Lon]
-    lat.n = coords_along[Dive == dive, Lat]
-    depth.n = coords_along[Dive == dive, Depth]
-    n2 = length(lon.n)
-    j = 1
+    lon.n <- coords_along[Dive == dive, Lon]
+    lat.n <- coords_along[Dive == dive, Lat]
+    depth.n <- coords_along[Dive == dive, Depth]
+    n2 <- length(lon.n)
+    j <- 1
     
     while (i <= n) {
-        nf = min(j+60, n2)
-        dists = sqrt((lon[i] - lon.n[j:nf])^2 + (lat[i] - lat.n[j:nf])^2 + (depth[i] - depth.n[j:nf])^2)
-        j = j + which.min(dists) - 1
+        nf <- min(j+60, n2)
+        dists <- sqrt((lon[i] - lon.n[j:nf])^2 + (lat[i] - lat.n[j:nf])^2 + (depth[i] - depth.n[j:nf])^2)
+        j <- j + which.min(dists) - 1
         
-        lon.f[i] = lon.n[j]
-        lat.f[i] = lat.n[j]
-        depth.f[i] = depth.n[j]
+        lon.f[i] <- lon.n[j]
+        lat.f[i] <- lat.n[j]
+        depth.f[i] <- depth.n[j]
         
-        i = i + 1
+        i <- i + 1
     }
     
     return(list(lon.f, lat.f, depth.f))
@@ -60,7 +60,7 @@ simplify_filter <- function(x, dTolerance = 5, preserveTopology = TRUE){
     tmp <- x$coords[keep == FALSE]
     x$coords_init[tmp, removed := "simplify_filter"] # on=.(Dive, Time)
 
-    x$coords = x$coords[keep == TRUE]
+    x$coords <- x$coords[keep == TRUE]
     x$coords$keep <- NULL
 
     return(x)
@@ -92,9 +92,9 @@ interpolate_points <- function(x, density = 2){
     coords_along[, Dive := tmp$Dive[Dive]]
     
     # set original points to their new locations
-    x$coords = x$coords_init[removed %in% c("simplify_filter","distance_filter","is_stopped","kept")]
+    x$coords <- x$coords_init[removed %in% c("simplify_filter","distance_filter","is_stopped","kept")]
     x$coords[, (x$cols) := lapply(.SD, data.table::frollmean, n=7, align = "center"), by=.(Dive), .SDcols=x$cols]
-    x$coords = na.omit(x$coords)
+    x$coords <- na.omit(x$coords)
     
     x$coords[, (x$cols) := join_coords(Lon, Lat, Depth, data.table::first(Dive), coords_along), by=.(Dive)]
     
@@ -107,15 +107,16 @@ interpolate_points <- function(x, density = 2){
 #' Fill gaps in the timestamp of track, generating a point every second.
 #' Missing points are interpolated based on \code{type}.
 #' @param x 'track' object.
-#' @param type interpolation to be used. One of 'locf', 'approx' or 'spline'.
+#' @param type interpolation to be used. One of 'locf', 'approx', 'spline', or 'pchip'.
 #' @note This should be the last filter used in the track data.
 #' @export
 fill_time_gaps <- function(x, type = "locf") {
     check_track(x)
     
     # interpolate points for each second
-    coords = x$coords[, .(Time = seq(data.table::first(Time), data.table::last(Time), by="sec")), by=.(Dive)]
-    coords = x$coords[coords,.(Dive, Time, Lon, Lat, Depth), on=.(Dive, Time)]
+    x$coords[, Time := as.POSIXct(round(Time, units='secs'))]
+    coords <- x$coords[, .(Time = seq(data.table::first(Time), data.table::last(Time), by="sec")), by=.(Dive)]
+    coords <- x$coords[coords,.(Dive, Time, Lon, Lat, Depth), on=.(Dive, Time)]
     
     if (type == "locf") {
         data.table::setnafill(coords, type="locf", cols=x$cols)
@@ -123,11 +124,19 @@ fill_time_gaps <- function(x, type = "locf") {
         coords[, (x$cols) := lapply(.SD, zoo::na.approx), by=.(Dive), .SDcols=x$cols]
     } else if (type == "spline") {
         coords[, (x$cols) := lapply(.SD, zoo::na.spline), by=.(Dive), .SDcols=x$cols]
+    } else if (type == "pchip") {
+        coords[, (x$cols) := lapply(.SD, na.pchip), by=.(Dive), .SDcols=x$cols]
     } else {
-        stop("type should be one of 'locf', 'approx' or 'spline'")
+        stop("type should be one of 'locf', 'approx', 'spline', or 'pchip'")
     }
     
     x$coords <- coords
-    x$interpolated = TRUE
+    x$interpolated <- TRUE
     return(x)
+}
+
+na.pchip <- function(object) {
+    x <- seq_along(object)
+    na <- !is.na(object)
+    signal::pchip(x[na], object[na], x)
 }

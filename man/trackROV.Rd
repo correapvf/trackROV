@@ -4,14 +4,17 @@
 \alias{trackROV}
 \alias{create_track}
 \alias{write_track}
+\alias{write_track_sf}
 \alias{get_coords}
 \alias{plot.track}
 \alias{copy_track}
 \title{Create ROV track object}
 \usage{
-create_track(coords, crs = NA)
+create_track(coords, crs = NA, crs_from = NA)
 
 write_track(x, filename, digits = 2, ...)
+
+write_track_sf(x, filename, as_line = FALSE, ...)
 
 get_coords(x, data.table = FALSE)
 
@@ -24,13 +27,18 @@ copy_track(x)
 
 \item{crs}{A object with coordinate reference system. Check \code{\link[sf]{st_crs}} for options.}
 
+\item{crs_from}{If supplied, coordinates are converted from \code{crs_from} to \code{crs}.}
+
 \item{x}{'track' object}
 
 \item{filename}{Output file name.}
 
 \item{digits}{Number of digits to round data}
 
-\item{...}{further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.}
+\item{...}{further arguments passed to \code{\link[data.table]{fwrite}}, \code{\link[sf]{st_write}},
+\code{\link[plotly]{plot_ly}} or \code{\link[plotly]{plot3d}}.}
+
+\item{as_line}{logical. If TRUE, save features as lines, else save as points}
 
 \item{data.table}{logical. TRUE returns a data.table. FALSE returns a data.frame.}
 
@@ -48,19 +56,25 @@ Preferably, coordinates should be in a projected coordinate system (e.g. UTM).
 Use \code{create_track} to create a 'track' object and apply filters.
 Following functions can also be used:
 \itemize{
-  \item \code{write_track} - Save coordinates in file.
+  \item \code{write_track} - Save coordinates in text file.
+  \item \code{write_track_st} - Save coordinates in shape file.
   \item \code{get_coords} - Get coordinates from a 'track' object.
   \item \code{copy_track} - Make a copy of the object.
   \item \code{plot} - 3D plot of the track using \code{plotly}.
+  \item \code{\link{plot_tracks}} - Save tracks of each dive as a html file.
+  \item \code{\link{set_dives}} - Associate dives based on start and end timestamps.
   }
 Always use \code{copy_track} to make a copy of the track object (e.g. \code{track2 = copy(track1)}),
 or else filters will be applied to both objects.
 
 Possible filters include:
 \itemize{
+  \item \code{\link{filter_depth}} - Filter points based on depth 
+  \item \code{\link{trim_track}} - Remove points that are far away in the start or end of a track.
   \item \code{\link{remove_outliers}} - Remove points that are far away from adjacent points.
   \item \code{\link{remove_stopped}} - Detect cloud of points and remove them from the track.
   \item \code{\link{distance_filter}} - Distance threshold filter.
+  \item \code{\link{distance_filter_mean}} - Distance threshold filter followed by mean.
   \item \code{\link{rolling_mean}} - Rolling mean filter.
   \item \code{\link{simplify_filter}} - Remove points using Douglas-Peuker Algorithm.
   \item \code{\link{interpolate_points}} - Interpolate points along track.

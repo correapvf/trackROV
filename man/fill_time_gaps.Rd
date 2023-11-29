@@ -9,7 +9,7 @@ fill_time_gaps(x, type = "locf")
 \arguments{
 \item{x}{'track' object.}
 
-\item{type}{interpolation to be used. One of 'locf', 'approx' or 'spline'.}
+\item{type}{interpolation to be used. One of 'locf', 'approx', 'spline', or 'pchip'.}
 }
 \description{
 Fill gaps in the timestamp of track, generating a point every second.

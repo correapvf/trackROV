@@ -22,11 +22,11 @@ remove_outliers <- function(x, n = 7, d = 5, select = NULL) {
         x$coords <- x$coords[Dive %in% select]
     }
     
-    n_tail = ceiling(n/3)
-    n_center = ceiling(n/2)
-    tmp = x$coords[, lapply(.SD, data.table::frollapply, n=n, align = "center", fill=0,
+    n_tail <- ceiling(n/3)
+    n_center <- ceiling(n/2)
+    tmp <- x$coords[, lapply(.SD, data.table::frollapply, n=n, align = "center", fill=0,
                             FUN= function(x) x[n_center] - stats::median(x[c(1:n_tail, (n-n_tail+1):n)])),
-                   by=.(Dive), .SDcols=x$cols]
+                   by = .(Dive), .SDcols = x$cols]
     
     x$coords$Lon[abs(tmp$Lon) >= d] <- NA
     x$coords$Lat[abs(tmp$Lat) >= d] <- NA
@@ -40,7 +40,7 @@ remove_outliers <- function(x, n = 7, d = 5, select = NULL) {
         x$coords <- coords
     }
     
-    x$coords = na.omit(x$coords, x$cols)
+    x$coords <- na.omit(x$coords, x$cols)
     
     return(x)
 }
@@ -106,8 +106,83 @@ remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, select = NULL){
         x$coords <- coords[keep == TRUE]
         x$coords$keep <- NULL
     } else {
-        x$coords = x$coords[tmp$keep == TRUE]
+        x$coords <- x$coords[tmp$keep == TRUE]
     }
     
     return(x)
+}
+
+
+#' Filter points based on depth 
+#' 
+#' Remove points where depth is greater than \code{depth}.
+#' @param x 'track' object.
+#' @param depth threshold to filter points, same units original data.
+#' Points with depth above this value will be removed.
+#' @param select character. The filter is applied only in these dives.
+#' @export
+filter_depth <- function(x, depth = -5, select = NULL) {
+  check_track(x)
+  
+  if (!is.null(select)) {
+    x$coords <- x$coords[(Depth <= depth) & (Dive %in% select)]
+    x$coords_init[(Depth > depth) & (Dive %in% select), removed := "shallow"]
+  } else {
+    x$coords <- x$coords[Depth <= depth]
+    x$coords_init[Depth > depth, removed := "shallow"]
+  }
+  
+  return(x)
+}
+
+
+#' Trim start and end of each track 
+#' 
+#' Remove points that are far away in the start or end of a track.
+#' 
+#' This filter will analyze only the ends of each track. If distance is greater than \code{d},
+#' any previous/following points will be removed.
+#' @param x 'track' object.
+#' @param d threshold to remove outliers, same units original data.
+#' @param nend maximum number of points at each end that can removed.
+#' @param select character. The filter is applied only in these dives.
+#' @export
+trim_track <- function(x, d = 10, nend = 100, select = NULL) {
+  check_track(x)
+  
+  if (!is.null(select)) {
+    x$coords[Dive %in% select, keep := trim_helper(Lat, Lon, Depth, d=d, nend=nend), by = .(Dive)]
+  } else {
+    x$coords[, keep := trim_helper(Lat, Lon, Depth, d=d, nend=nend), by = .(Dive)]
+  }
+  
+  tmp2 <- x$coords[keep == FALSE]
+  x$coords_init[tmp2, removed := "trimmed"] # on=.(Dive, Time)
+  
+  x$coords <- x$coords[keep == TRUE]
+  x$coords$keep <- NULL
+  
+}
+
+
+# Function used for trim_track
+trim_helper <- function(Lat, Lon, Depth, d, nend) {
+  track <- data.table(Lat=Lat, Lon=Lon, Depth=Depth)
+  tmp <- head(track, nend)
+  tmp[, dist := sqrt((Lat - shift(Lat, -1))^2 + (Lon - shift(Lon, -1))^2 + (Depth - shift(Depth, -1))^2)]
+  istart <- tail(which(tmp$dist > d), 1) + 1
+  if (length(istart) == 0) istart <- 1
+  
+  tmp <- tail(track, nend)
+  tmp[, dist := sqrt((Lat - shift(Lat))^2 + (Lon - shift(Lon))^2 + (Depth - shift(Depth))^2)]
+  iend <- nrow(track) - (nend - head(which(tmp$dist > d), 1)) - 1
+  if (length(iend) == 0) iend <- nrow(track)
+  
+  n <- nend - 1
+  if (isart == n | iend == n) warning("'trim_track' removed all points from one end.
+                                 Consider reviewing and raising 'd' or 'nend'")
+  
+  track[, keep := FALSE]
+  track[istart:iend, keep := TRUE]
+  return(track$keep)
 }

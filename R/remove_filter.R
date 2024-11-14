@@ -62,8 +62,9 @@ remove_outliers <- function(x, n = 7, d = 5, select = NULL) {
 #' @param d distance buffer around detected points, same units original data. All points within this buffer are removed.
 #' @param t 'time' buffer around detected points, in seconds. All points that within this period are removed.
 #' @param select character. The filter is applied only in these dives.
+#' @param include_mean bool. Just remove the points detected as stopped (default), or calculate the mean and add in the track.
 #' @export
-remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, select = NULL){
+remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, include_mean=FALSE, select = NULL){
     check_track(x)
     
     if (!is.null(select)) {
@@ -78,6 +79,8 @@ remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, select = NULL){
     tmp[, all := apply(tmp, 1, all)]
     tmp[, id := data.table::rleid(all)]
     tmp[, keep := TRUE]
+    
+    tmpc <- list()
     
     for (i in 1:max(tmp$id)) {
         index = which(tmp$id == i)
@@ -94,6 +97,10 @@ remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, select = NULL){
                                         ))
             
             tmp[tmpi, keep := FALSE]
+            
+            tmpmean <- x$coords[tmpi, lapply(.SD, mean), .SDcols = -c('Dive')]
+            tmpmean$Dive <- x$coords[tmpi[1], Dive]
+            tmpc <- rbind(tmpc, tmpmean)
         }
     }
     
@@ -107,6 +114,14 @@ remove_stopped <- function(x, n = 61, p = 0.0001, d = 6, t=30, select = NULL){
         x$coords$keep <- NULL
     } else {
         x$coords <- x$coords[tmp$keep == TRUE]
+    }
+    
+    if (include_mean) {
+      x$coords <- rbind(x$coords, tmpc)
+      tmpc$removed <- "stopped_mean"
+      x$coords_init <- rbind(x$coords_init, tmpc)
+      data.table::setkey(x$coords, Dive, Time)
+      data.table::setkey(x$coords_init, Dive, Time)
     }
     
     return(x)

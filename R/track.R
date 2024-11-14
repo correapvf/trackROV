@@ -93,7 +93,7 @@ create_track <- function(coords, crs = NA, crs_from = NA) {
 write_track <- function(x, filename, digits = 2, ...) {
     x$coords[, (x$cols) := lapply(.SD, round, digits = digits), .SDcols=x$cols]
     
-    if (unique(x$coords$Dive) == 1) {
+    if (length(unique(x$coords$Dive)) == 1) {
       data.table::fwrite(x$coords[, !"Dive"], filename, ...)
     } else {
       data.table::fwrite(x$coords, filename, ...)

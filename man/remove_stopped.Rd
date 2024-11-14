@@ -4,7 +4,15 @@
 \alias{remove_stopped}
 \title{Remove points were ROV is stopped}
 \usage{
-remove_stopped(x, n = 61, p = 1e-04, d = 6, t = 30, select = NULL)
+remove_stopped(
+  x,
+  n = 61,
+  p = 1e-04,
+  d = 6,
+  t = 30,
+  include_mean = FALSE,
+  select = NULL
+)
 }
 \arguments{
 \item{x}{'track' object.}
@@ -16,6 +24,8 @@ remove_stopped(x, n = 61, p = 1e-04, d = 6, t = 30, select = NULL)
 \item{d}{distance buffer around detected points, same units original data. All points within this buffer are removed.}
 
 \item{t}{'time' buffer around detected points, in seconds. All points that within this period are removed.}
+
+\item{include_mean}{bool. Just remove the points detected as stopped (default), or calculate the mean and add in the track.}
 
 \item{select}{character. The filter is applied only in these dives.}
 }

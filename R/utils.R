@@ -41,5 +41,9 @@ set_dives <- function(x, dive_ranges) {
   x$coords <- data.table::foverlaps(x$coords, time_ranges, by.x=c("Time","dummy"))
   x$coords[, c("dummy", "i.Dive", "start", "end") := NULL]
   x$coords <- x$coords[!is.na(Dive)]
+  data.table::setkey(x$coords, Dive, Time)
+  
+  x$coords_init <- data.table::copy(x$coords)
+  x$coords_init[, removed := "kept"]
   return(x)
 }

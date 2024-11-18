@@ -111,12 +111,14 @@ write_track_sf <- function(x, filename, as_line = FALSE, ...) {
     sf::st_as_sf(coords = x$cols, crs = x$crs)
 
   if (as_line) { 
-    tmp %>%
+    tmp <- tmp %>%
       dplyr::group_by(Dive) %>%
       dplyr::summarise(Start = dplyr::first(Time),
                        End = dplyr::last(Time),
                        geometry = sf::st_combine(geometry)) %>%
       sf::st_cast("LINESTRING")
+    
+    tmp$Length <- sf::st_length(sf::st_transform(tmp, 4326))
   }
 
   sf::st_write(tmp, filename, ...)
